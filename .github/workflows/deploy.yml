@@ -1,0 +1,70 @@
+name: CI/CD Security + Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 🔍 Semgrep scan
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: "p/ci"
+
+      # 🔍 Trivy scan (Docker image vulnérabilités)
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: najemkub/chat-app-backend:latest
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+
+      # 🔍 DAST avec OWASP ZAP
+      - name: Run OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.9.0
+        with:
+          target: "http://chat-app-backend.chat-app.svc.cluster.local:8080"
+          rules_file_name: ".zap/rules.tsv"
+          cmd_options: "-a"
+
+  deploy:
+    needs: security-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.29.0'
+
+      - name: Update kubeconfig for EKS
+        run: aws eks update-kubeconfig --name chat-app-eks --region ${{ secrets.AWS_REGION }}
+
+      - name: Create namespace (idempotent)
+        run: kubectl create namespace chat-app || true
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl -n chat-app apply -f k8s/deployment.yaml
+          kubectl -n chat-app apply -f k8s/service.yaml
+
+      - name: Wait for rollout
+        run: kubectl -n chat-app rollout status deployment/chat-app-backend --timeout=120s
+

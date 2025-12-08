@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-app-backend
+  labels:
+    app: chat-app-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chat-app-backend
+  template:
+    metadata:
+      labels:
+        app: chat-app-backend
+    spec:
+      containers:
+        - name: chat-app-backend
+          image: najemkub/chat-app-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+
