@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: chat-app-backend
-          image: najemkub/chat-app-backend:latest
+          image: najemkub/chat-app-backend:v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
