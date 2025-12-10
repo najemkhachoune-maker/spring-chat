@@ -27,7 +27,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: najemkub/chat-app-backend:v1
+          image-ref: najemkub/chat-app-backend:v2
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
