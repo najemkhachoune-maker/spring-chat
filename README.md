@@ -158,7 +158,7 @@ frontend/
 
 - **Glassmorphism**: Modern frosted glass effect
 - **Gradient Backgrounds**: Dynamic, animated gradient orbs
-- **Smooth Animations**: Micro-interactions for better UX
+- **Smooth Animations**: Micro-interactions for better ux
 - **Dark Theme**: Eye-friendly dark color scheme
 - **Responsive Layout**: Adapts to all screen sizes
 

@@ -27,7 +27,7 @@ public class WebSocketChatController {
     @SendTo("/topic/public")
     public ChatMessage addUser(@Payload ChatMessage chatMessage) {
         // Update user status to online
-        userService.findByUsername(chatMessage.getSender()).ifPresent(user -> {
+        userService.findByUsername(chatMessage.getSenderId()).ifPresent(user -> {
             user.setStatus(com.example.chatapp.model.Status.ONLINE);
             userService.saveUser(user);
         });
@@ -38,7 +38,7 @@ public class WebSocketChatController {
     @SendTo("/topic/public")
     public ChatMessage removeUser(@Payload ChatMessage chatMessage) {
         // Update user status to offline
-        userService.findByUsername(chatMessage.getSender()).ifPresent(user -> {
+        userService.findByUsername(chatMessage.getSenderId()).ifPresent(user -> {
             user.setStatus(com.example.chatapp.model.Status.OFFLINE);
             userService.saveUser(user);
         });

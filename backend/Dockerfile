@@ -1,13 +1,28 @@
-# Build Stage
+# ----------- Build Stage ------------
 FROM maven:3.9-eclipse-temurin-17-alpine AS build
 WORKDIR /app
-COPY pom.xml .
-COPY src ./src
-RUN mvn clean package -DskipTests
 
-# Run Stage
-FROM eclipse-temurin:17-jdk-alpine
+# Copier uniquement pom.xml 
+COPY pom.xml .
+RUN mvn -B clean package -DskipTests
+
+
+# Copier le code source
+COPY src ./src
+
+# Build l'application
+RUN mvn -B clean package -DskipTests
+
+
+# ----------- Runtime Stage (DISTROLESS) ------------
+FROM gcr.io/distroless/java17
 WORKDIR /app
+
+# Copier le JAR
 COPY --from=build /app/target/*.jar app.jar
+
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+# Exécuter l'application
+CMD ["java", "-jar", "app.jar"]
+
