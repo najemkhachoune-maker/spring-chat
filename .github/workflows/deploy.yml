@@ -1,0 +1,88 @@
+name: CI/CD Security + Deploy
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Pull existing Docker image
+        run: docker pull ${{ secrets.DOCKER_USERNAME }}/chat-app-backend:v2
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: "p/ci"
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/chat-app-backend:v2
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+
+  deploy:
+    needs: security-scan
+    runs-on: ubuntu-latest
+
+    outputs:
+      lb_url: ${{ steps.get-lb.outputs.lb }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.29.0'
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name chat-app-eks --region ${{ secrets.AWS_REGION }}
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl -n chat-app apply -f k8s/deployment.yaml
+          kubectl -n chat-app apply -f k8s/service.yaml
+
+      - name: Wait for rollout
+        run: kubectl -n chat-app rollout status deployment/chat-app-backend --timeout=120s
+
+      - name: Get Load Balancer URL
+        id: get-lb
+        run: |
+          LB=$(kubectl -n chat-app get svc chat-app-backend -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "lb=$LB" >> $GITHUB_OUTPUT
+          echo "Load Balancer URL: $LB"
+
+  dast:
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.9.0
+        with:
+          target: "http://${{ needs.deploy.outputs.lb_url }}"
+          cmd_options: "-a"
