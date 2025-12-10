@@ -60,12 +60,9 @@ jobs:
 
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name chat-app-eks --region ${{ secrets.AWS_REGION }}
+
       - name: Create namespace if missing
-       run: kubectl create namespace chat-app --dry-run=client -o yaml | kubectl apply -f -
-
-      -name: Apply Kubernetes manifests
-       run: kubectl -n chat-app apply -f k8s/deployment.yaml
-
+        run: kubectl create namespace chat-app --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply Kubernetes manifests
         run: |
